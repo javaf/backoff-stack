@@ -38,6 +38,24 @@ backoff():
 3. Double the max random wait duration.
 ```
 
+```bash
+## OUTPUT
+Starting 10 threads with sequential stack
+1: failed pop
+3: failed pop
+4: failed pop
+1: popped 2/1000 values
+1: has duplicate value 9999
+1: has duplicate value 9998
+3: popped 79/1000 values
+3: has duplicate value 3761
+4: popped 886/1000 values
+Was LIFO? false
+
+Starting 10 threads with backoff stack
+Was LIFO? true
+```
+
 See [BackoffStack.java] for code, [Main.java] for test, and [repl.it] for output.
 
 [BackoffStack.java]: https://repl.it/@wolfram77/backoff-stack#BackoffStack.java
