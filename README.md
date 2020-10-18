@@ -1,62 +1,48 @@
-Fine Set is a collection of unique elements
-maintained as a linked list. The list of nodes
-are arranged in ascending order by their key,
-which is obtained using `hashCode()`. This
-facilitates the search of a item within the
-list. When the list is empty, it contains two
-sentinel nodes `head` and `tail` with minimum
-and maximum key values respectively. These
-sentinel nodes are not part of the set.
-
-Each node has an associated lock (fine-grained)
-that enables locking specific nodes, instead of
-locking down the whole list for all method
-calls. Traversing the list (find) is done in
-a hand-holding manner, as children do with an
-overhead ladder. Initially two nodes are locked.
-While moving to the next node, we unlock the
-first node, and lock the third node, and so on.
-This prevents any thread from adding or
-removing threads in between, allowing them to
-execute in pipelined fashion.
-
-As this set uses fine-grained locks (per node),
-it performs well when contention is medium. Due
-to acquiring of locks in hand-holding fashion,
-threads traversing the list concurrently will
-be stacked behind each other. This forced
-pipelining occurs even if they want to modify
-completely different parts of the list.
+Backoff stack is an unbounded lock-free LIFO linked
+list, where pushes and pops synchronize at a single
+location. It is compare-and-set (CAS) atomic operation
+to provide concurrent access with obstruction freedom.
 
 ```java
-add():
-1. Create new node beforehand.
-2. Find node after which to insert.
-3. Add node, only if key is unique.
-4. Increment size if node was added.
-5. Unlock node pairs locked by find.
+push():
+1. Create node for value.
+2. Try pushing node to stack.
+2a. If successful, return.
+2b. Otherwise, backoff and try again.
 ```
 
 ```java
-remove():
-1. Find node after which to remove.
-2. Remove node, only if key matches.
-3. Decrement size if node was removed.
-4. Unlock node pairs locked by find.
+pop():
+1. Try popping a node from stack.
+1a. If successful, return its value.
+1b. Otherwise, backoff and try again.
 ```
 
 ```java
-contains():
-1. Find node previous to search key.
-2. Check if next node matches search key.
-3. Unlock node pairs locked by find.
+tryPush():
+1. Get stack top.
+2. Set node's next to top.
+3. Try push node at top (CAS).
 ```
 
-See [FineSet.java] for code, [Main.java] for test, and [repl.it] for output.
+```java
+tryPop():
+1. Get stack top, and ensure stack not empty.
+2. Try pop node at top, and set top to next (CAS).
+```
 
-[FineSet.java]: https://repl.it/@wolfram77/fine-set#FineSet.java
-[Main.java]: https://repl.it/@wolfram77/fine-set#Main.java
-[repl.it]: https://fine-set.wolfram77.repl.run
+```java
+backoff():
+1. Get a random wait duration.
+2. Sleep for the duration.
+3. Double the max random wait duration.
+```
+
+See [BackoffStack.java] for code, [Main.java] for test, and [repl.it] for output.
+
+[BackoffStack.java]: https://repl.it/@wolfram77/backoff-stack#BackoffStack.java
+[Main.java]: https://repl.it/@wolfram77/backoff-stack#Main.java
+[repl.it]: https://backoff-stack.wolfram77.repl.run
 
 
 ### references
