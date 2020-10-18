@@ -6,6 +6,9 @@ class BackoffStack<T> {
   static final long MIN_WAIT = 1;
   static final long MAX_WAIT = 100;
 
+  public BackoffStack() {
+    top = new AtomicReference<>(null);
+  }
 
   public void push(T x) {
     long W = MIN_WAIT;

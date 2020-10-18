@@ -1,63 +1,98 @@
 import java.util.*;
 
 class Main {
-  static Set<Integer> set;
-  static int NUM = 10, OPS = 100;
+  static Deque<Integer> stack;
+  static BackoffStack<Integer> concurrentStack;
+  static List<Integer>[] poppedValues;
+  static int TH = 10, NUM = 1000;
 
-  // Each thread removes a number from set
-  // and adds another number.
-  static Thread thread(int rem, int add) {
-    Thread t = new Thread(() -> {
+  // Each unsafe thread pushes N numbers and pops N, adding
+  // them to its own poppedValues for checking; using Java's
+  // sequential stack implementation, ArrayDeque.
+  static Thread unsafe(int id, int x, int N) {
+    return new Thread(() -> {
+      String action = "push";
       try {
-      for(int i=0; i<OPS; i++) {
-        boolean had = set.remove(rem);
-        if (had) set.add(add);
-        Thread.sleep(10);
+      for (int i=0, y=x; i<N; i++)
+        stack.push(y++);
+      Thread.sleep(1000);
+      action = "pop";
+      for (int i=0; i<N; i++)
+        poppedValues[id].add(stack.pop());
       }
-      log(rem+" -> "+add+" : done");
-      }
-      catch(InterruptedException e) {}
+      catch (Exception e) { log(id+": failed "+action); }
     });
-    t.start();
-    return t;
   }
 
-  static void testThreads() {
-    log("Positive threads convert -n -> +n.");
-    log("Negative threads convert +n -> -n.");
-    log("Starting "+NUM+" positive threads ...");
-    log("Starting "+NUM+" negative threads ...");
-    Thread[] p = new Thread[NUM];
-    Thread[] n = new Thread[NUM];
-    for (int i=0; i<NUM; i++) {
-      p[i] = thread(-i, i);
-      n[i] = thread(i, -i);
+  // Each safe thread pushes N numbers and pops N, adding
+  // them to its own poppedValues for checking; using
+  // BackoffStack.
+  static Thread safe(int id, int x, int N) {
+    return new Thread(() -> {
+      String action = "push";
+      try {
+      for (int i=0, y=x; i<N; i++)
+        concurrentStack.push(y++);
+      Thread.sleep(1000);
+      action = "pop";
+      for (int i=0; i<N; i++)
+        poppedValues[id].add(concurrentStack.pop());
+      }
+      catch (Exception e) { log(id+": failed "+action); }
+    });
+  }
+
+  // Checks if each thread popped N values, and they are
+  // globally unique.
+  static boolean wasLIFO(int N) {
+    Set<Integer> set = new HashSet<>();
+    boolean passed = true;
+    for (int i=0; i<TH; i++) {
+      int n = poppedValues[i].size();
+      if (n != N) {
+        log(i+": popped "+n+"/"+N+" values");
+        passed = false;
+      }
+      for (Integer x : poppedValues[i])
+        if (set.contains(x)) {
+          log(i+": has duplicate value "+x);
+          passed = false;
+        }
+      set.addAll(poppedValues[i]);
+    }
+    return passed;
+  }
+
+  @SuppressWarnings("unchecked")
+  static void testThreads(boolean backoff) {
+    stack = new ArrayDeque<>();
+    concurrentStack = new BackoffStack<>();
+    poppedValues = new List[TH];
+    for (int i=0; i<TH; i++)
+      poppedValues[i] = new ArrayList<>();
+    Thread[] threads = new Thread[TH];
+    for (int i=0; i<TH; i++) {
+      threads[i] = backoff?
+        safe(i, i*NUM, NUM) :
+        unsafe(i, i*NUM, NUM);
+      threads[i].start();      
     }
     try {
-    for (int i=0; i<NUM; i++) {
-      p[i].join();
-      n[i].join();
+    for (int i=0; i<TH; i++)
+      threads[i].join();
     }
-    }
-    catch(InterruptedException e) {}
-  }
-
-  static void populateSet() {
-    set = new OptimisticSet<>();
-    for(int i=0; i<NUM; i++)
-      set.add(i);
-  }
-
-  static boolean validateSet() {
-    return set.size() == NUM;
+    catch (Exception e) {}
   }
 
   public static void main(String[] args) {
-    populateSet();
-    log("Set: "+set.size()+" : "+set);
-    testThreads();
-    log("Set: "+set.size()+" : "+set);
-    log("Result passed? "+validateSet());
+    log("Starting "+TH+" threads with sequential stack");
+    testThreads(false);
+    log("Was LIFO? "+wasLIFO(NUM));
+    log("");
+    log("Starting "+TH+" threads with backoff stack");
+    testThreads(true);
+    log("Was LIFO? "+wasLIFO(NUM));
+    log("");
   }
 
   static void log(String x) {
