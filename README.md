@@ -3,6 +3,11 @@ list, where pushes and pops synchronize at a single
 location. It is compare-and-set (CAS) atomic operation
 to provide concurrent access with obstruction freedom.
 
+> **Course**: [Concurrent Data Structures], Monsoon 2020\
+> **Taught by**: Prof. Govindarajulu Regeti
+
+[Concurrent Data Structures]: https://github.com/iiithf/concurrent-data-structures
+
 ```java
 push():
 1. Create node for value.
